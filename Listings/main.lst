@@ -1,0 +1,372 @@
+C51 COMPILER V9.60.0.0   MAIN                                                              04/07/2021 17:42:10 PAGE 1   
+
+
+C51 COMPILER V9.60.0.0, COMPILATION OF MODULE MAIN
+OBJECT MODULE PLACED IN .\Objects\main.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE main.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Listings\main
+                    -.lst) TABS(2) OBJECT(.\Objects\main.obj)
+
+line level    source
+
+   1          #include <at89c5131.h>
+   2          #include "lcd.h"    //Header file with LCD interfacing functions
+   3          #include "serial.c" //C file with UART interfacing functions
+   4          
+   5          //sbit LED=P1^7;
+   6          
+   7          
+   8          unsigned char display_line1[9]={'*','*','*','*','*','*','*','*','\0'};    //string array for saving mole to 
+             -present
+   9          unsigned char display_line2[9]={'*','*','*','*','*','*','*','*','\0'};    //string array for saving mole to 
+             -present
+  10          
+  11          char high_sc[3]={0,0,'\0'};             //string array for saving high score
+  12          char sc[3]={0,0,'\0'};                  //string array for saving score of a game
+  13          bit time_up = 0;                        //set to 1 when 10s have passed
+  14          unsigned int high_score=0;              //stores high score
+  15          unsigned int score=0;                   //stores score
+  16          unsigned int count=0;                   //Counts number of Timer 0 interrupts to make a 10s delay             
+  17          unsigned int num=3;                   //stores state of LSFR
+  18          unsigned int m=3;                     //stores position of m of mole
+  19          
+  20          
+  21          
+  22          void lcd_mole(void)                     //displays the stars and mole n lcd
+  23          {
+  24   1        lcd_cmd(0x01);
+  25   1        
+  26   1        lcd_cmd(0x80);    
+  27   1        lcd_write_string(display_line1);
+  28   1        
+  29   1        lcd_cmd(0xC0);
+  30   1        lcd_write_string(display_line2);
+  31   1        
+  32   1        
+  33   1      }
+  34          
+  35          void change(void)                       //calcuates the new state of LSFR and new value of m
+  36          {
+  37   1        unsigned int b0,b3;
+  38   1        m=num;
+  39   1        b0 = num%2;
+  40   1        b3 = num/8;
+  41   1        num=num/2;
+  42   1        num= num+8*(b0^b3);
+  43   1        
+  44   1        m=(num+m)%16;
+  45   1      }
+  46          
+  47          void newmole(void){                     //replaces old m by *, calculates new m and prints the new m
+  48   1        if(m<8)
+  49   1        {
+  50   2          display_line1[m]='*';
+  51   2        }
+  52   1        else
+C51 COMPILER V9.60.0.0   MAIN                                                              04/07/2021 17:42:10 PAGE 2   
+
+  53   1        {
+  54   2          display_line2[(m-8)]='*';
+  55   2        }
+  56   1        
+  57   1        change();
+  58   1        
+  59   1        
+  60   1        if(m<8)
+  61   1        {
+  62   2          display_line1[m]='m';
+  63   2        }
+  64   1        else
+  65   1        {
+  66   2          display_line2[(m-8)]='m';
+  67   2        }
+  68   1        
+  69   1        
+  70   1        lcd_mole();
+  71   1      }
+  72          
+  73          void inter(void)                              //Timer 0 interrupt function
+  74          {
+  75   1        if(count==305)  
+  76   1          {
+  77   2            time_up=1;
+  78   2            t_up=1;
+  79   2            ET0=0;
+  80   2            //lcd_cmd(0xC0);    
+  81   2            //lcd_write_string("0");
+  82   2            
+  83   2          }
+  84   1        else{count++; TF0=0;}
+  85   1      }
+  86          
+  87          void counter(void) interrupt 1                      //Timer 0 Interrupt
+  88          {
+  89   1        inter();
+  90   1      }
+  91          
+  92          
+  93          void lcd_score(void)                                //Displays score and high score
+  94          {
+  95   1        lcd_cmd(0x01);
+  96   1        
+  97   1        lcd_cmd(0x80);    
+  98   1        lcd_write_string("Score:        ");
+  99   1        int_to_string(score,sc);
+ 100   1        lcd_write_string(sc);
+ 101   1        
+ 102   1        
+ 103   1        lcd_cmd(0xC0);
+ 104   1        lcd_write_string("High Score:   ");
+ 105   1        int_to_string(high_score,high_sc);
+ 106   1        lcd_write_string(high_sc);
+ 107   1      }
+ 108          
+ 109          void start_timer()                                    //Starts the timer 0 for 10s
+ 110          {
+ 111   1        TMOD|= 0x01;
+ 112   1        TMOD&= 0xF1;
+ 113   1      
+ 114   1        TH0= 0x00;
+C51 COMPILER V9.60.0.0   MAIN                                                              04/07/2021 17:42:10 PAGE 3   
+
+ 115   1        TL0= 0x00;
+ 116   1        
+ 117   1        count=0;
+ 118   1        
+ 119   1        TR0=1;
+ 120   1        
+ 121   1        EA=1;
+ 122   1        ET0=1;
+ 123   1      }
+ 124          
+ 125          
+ 126          //Main function
+ 127          void main(void)
+ 128          {
+ 129   1      
+ 130   1        
+ 131   1        unsigned char ch=0;
+ 132   1        
+ 133   1      
+ 134   1        
+ 135   1        //Call initialization functions
+ 136   1        lcd_init();
+ 137   1        uart_init();
+ 138   1        
+ 139   1        high_score=0;
+ 140   1        
+ 141   1        if(m<8)
+ 142   1        {
+ 143   2          display_line1[m]='m';
+ 144   2        }
+ 145   1      else
+ 146   1        {
+ 147   2          display_line2[(m-8)]='m';
+ 148   2        }
+ 149   1        
+ 150   1        
+ 151   1        
+ 152   1        while(1)
+ 153   1        {
+ 154   2          //Print Get Ready msg
+ 155   2           lcd_cmd(0x01);
+ 156   2          lcd_cmd(0x80);    
+ 157   2          lcd_write_string("Get Ready");
+ 158   2          msdelay(2000);
+ 159   2          
+ 160   2          //Print all *s
+ 161   2          lcd_cmd(0x01);
+ 162   2          lcd_cmd(0x80);    
+ 163   2          lcd_write_string("********");
+ 164   2          lcd_cmd(0xC0);
+ 165   2          lcd_write_string("********");
+ 166   2          transmit_string("*\r\n");
+ 167   2          msdelay(3000);
+ 168   2          
+ 169   2          
+ 170   2          //initialise variables
+ 171   2          score=0;
+ 172   2          
+ 173   2          time_up=0; //set to 1 when the 10s timer is up
+ 174   2          t_up=0;
+ 175   2          
+ 176   2          //start 10s timer
+C51 COMPILER V9.60.0.0   MAIN                                                              04/07/2021 17:42:10 PAGE 4   
+
+ 177   2          start_timer();
+ 178   2          
+ 179   2          //shows the mole on lcd
+ 180   2          lcd_mole();
+ 181   2          
+ 182   2          
+ 183   2          rx_complete=0; //set to 0 to avoid any previous key press state stored in the SBUF to interfere
+ 184   2          
+ 185   2          while(!time_up)
+ 186   2          
+ 187   2          {
+ 188   3              
+ 189   3              //transmit_string("ch\r\n");
+ 190   3              //Receive a character
+ 191   3              ch = receive_char();
+ 192   3              
+ 193   3              //Decide which test function to run based on character sent
+ 194   3              
+ 195   3              switch(ch)
+ 196   3              {
+ 197   4                case 'q':if(m==0){
+ 198   5                          newmole();                  //new mole appears if the correct key is pressed
+ 199   5                          score+=1;
+ 200   5                  //transmit_string("q\r\n");
+ 201   5                        }
+ 202   4                         break;
+ 203   4                
+ 204   4                case 'w':if(m==1){
+ 205   5                          newmole();
+ 206   5                          score+=1;
+ 207   5                  //transmit_string("w\r\n");
+ 208   5                        }
+ 209   4                         break;
+ 210   4                
+ 211   4                case 'e':if(m==2){
+ 212   5                          newmole();
+ 213   5                          score+=1;
+ 214   5                  //transmit_string("e\r\n");
+ 215   5                        }
+ 216   4                         break;
+ 217   4                  
+ 218   4                case 'r':if(m==3){
+ 219   5                          newmole();
+ 220   5                          score+=1;
+ 221   5                  //transmit_string("r\r\n");
+ 222   5                        }
+ 223   4                         break;
+ 224   4                  
+ 225   4                case 't':if(m==4){
+ 226   5                          newmole();
+ 227   5                          score+=1;
+ 228   5                  //transmit_string("t\r\n");
+ 229   5                        }
+ 230   4                         break; 
+ 231   4                  
+ 232   4                case 'y':if(m==5){
+ 233   5                          newmole();
+ 234   5                          score+=1;
+ 235   5                  //transmit_string("y\r\n");
+ 236   5                        }
+ 237   4                         break;
+ 238   4                  
+C51 COMPILER V9.60.0.0   MAIN                                                              04/07/2021 17:42:10 PAGE 5   
+
+ 239   4                case 'u':if(m==6){
+ 240   5                          newmole();
+ 241   5                          score+=1;
+ 242   5                  //transmit_string("u\r\n");
+ 243   5                        }
+ 244   4                         break;
+ 245   4                  
+ 246   4                case 'i':if(m==7){
+ 247   5                          newmole();
+ 248   5                          score+=1;
+ 249   5                  //transmit_string("i\r\n");
+ 250   5                        }
+ 251   4                         break;
+ 252   4                  
+ 253   4                case 'a':if(m==8){
+ 254   5                          newmole();
+ 255   5                          score+=1;
+ 256   5                  //transmit_string("a\r\n");
+ 257   5                        }
+ 258   4                         break;
+ 259   4                  
+ 260   4                case 's':if(m==9){
+ 261   5                          newmole();
+ 262   5                          score+=1;
+ 263   5                  //transmit_string("s\r\n");
+ 264   5                        }
+ 265   4                         break;
+ 266   4                  
+ 267   4                case 'd':if(m==10){
+ 268   5                          newmole();
+ 269   5                          score+=1;
+ 270   5                  //transmit_string("d\r\n");
+ 271   5                        }
+ 272   4                         break;
+ 273   4                  
+ 274   4                case 'f':if(m==11){
+ 275   5                          newmole();
+ 276   5                          score+=1;
+ 277   5                  //transmit_string("f\r\n");
+ 278   5                        }
+ 279   4                         break;
+ 280   4                  
+ 281   4                case 'g':if(m==12){
+ 282   5                          newmole();
+ 283   5                          score+=1;
+ 284   5                  //transmit_string("g\r\n");
+ 285   5                        }
+ 286   4                         break;
+ 287   4                  
+ 288   4                case 'h':if(m==13){
+ 289   5                          newmole();
+ 290   5                          score+=1;
+ 291   5                  //transmit_string("h\r\n");
+ 292   5                        }
+ 293   4                         break;
+ 294   4                  
+ 295   4                case 'j':if(m==14){
+ 296   5                          newmole();
+ 297   5                          score+=1;
+ 298   5                  //transmit_string("j\r\n");
+ 299   5                        }
+ 300   4                         break;
+C51 COMPILER V9.60.0.0   MAIN                                                              04/07/2021 17:42:10 PAGE 6   
+
+ 301   4                  
+ 302   4                case 'k':if(m==15){
+ 303   5                          newmole();
+ 304   5                          score+=1;
+ 305   5                  //transmit_string("k\r\n");
+ 306   5                        }
+ 307   4                         break;
+ 308   4                  
+ 309   4                
+ 310   4                      
+ 311   4                default: //transmit_string("z\r\n");
+ 312   4                  break;
+ 313   4                
+ 314   4              }
+ 315   3              rx_complete=0;
+ 316   3              msdelay(2);
+ 317   3              //Testing lines:
+ 318   3              //if(a==1){transmit_string("1\r\n");}
+ 319   3              //if(b==1){transmit_string("2\r\n");}
+ 320   3              //if(c==1){transmit_string("3\r\n");}
+ 321   3              //if(d==1){transmit_string("4\r\n");}
+ 322   3              //a=0;b=0;c=0;d=0;
+ 323   3              
+ 324   3          }
+ 325   2          
+ 326   2          msdelay(10);
+ 327   2          if(high_score<score){ high_score=score;}              //Update high score if required
+ 328   2          
+ 329   2          time_up = 0;
+ 330   2          t_up=0;
+ 331   2          
+ 332   2          
+ 333   2          lcd_score();                                          //Display score and highscore
+ 334   2          msdelay(3000);
+ 335   2        }
+ 336   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1206    ----
+   CONSTANT SIZE    =     53    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     34      12
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =      4    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
